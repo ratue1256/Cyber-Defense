@@ -1,0 +1,1283 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyber Defense: TDS ULTIMATE</title>
+
+    <!-- Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Inter:wght@400;900&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- PeerJS (P2P Multiplayer) -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+
+    <style>
+        :root {
+            --bg: #050508;
+            --panel: rgba(20, 25, 40, 0.95);
+            --primary: #00f2ff;
+            --secondary: #ff0055;
+            --gold: #ffd700;
+            --rare: #9b59b6;
+            --text: #ffffff;
+            --font-head: 'Inter', sans-serif;
+            --font-body: 'Rajdhani', sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--font-body);
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* --- LAYOUT GLOBAL --- */
+        #app {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        /* --- MENUS (Glassmorphism) --- */
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, #1a1a2e 0%, #000 100%);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            max-width: 800px;
+            width: 90%;
+        }
+
+        h1 {
+            font-family: var(--font-head);
+            font-size: 3rem;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: -2px;
+            background: linear-gradient(to right, #fff, var(--primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .currency-display {
+            font-size: 1.5rem;
+            color: var(--gold);
+            margin-bottom: 30px;
+            font-weight: bold;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, var(--primary), #00a8ff);
+            border: none;
+            padding: 15px 30px;
+            color: #000;
+            font-weight: 800;
+            font-family: var(--font-head);
+            text-transform: uppercase;
+            cursor: pointer;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            margin: 10px;
+            transition: 0.2s;
+            box-shadow: 0 0 20px rgba(0, 242, 255, 0.2);
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 0 30px rgba(0, 242, 255, 0.4);
+        }
+
+        .btn.secondary {
+            background: transparent;
+            border: 1px solid #fff;
+            color: #fff;
+            box-shadow: none;
+        }
+
+        .btn.secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        /* --- CARDS (Inventory/Shop) --- */
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 15px;
+            width: 100%;
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .card {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid #333;
+            border-radius: 10px;
+            padding: 15px;
+            cursor: pointer;
+            transition: 0.2s;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .card:hover {
+            border-color: var(--primary);
+            background: rgba(0, 242, 255, 0.05);
+        }
+
+        .card.owned {
+            border-color: var(--gold);
+        }
+
+        .card.equipped {
+            border-color: var(--primary);
+            box-shadow: 0 0 15px rgba(0, 242, 255, 0.2);
+            background: rgba(0, 242, 255, 0.1);
+        }
+
+        .card.locked {
+            opacity: 0.5;
+            filter: grayscale(1);
+        }
+
+        .card i {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            color: #fff;
+        }
+
+        .card-name {
+            font-weight: bold;
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+        }
+
+        .card-price {
+            color: var(--gold);
+            font-size: 0.8rem;
+        }
+
+        .card-tag {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            font-size: 0.7rem;
+            background: var(--primary);
+            color: #000;
+            padding: 2px 6px;
+            border-radius: 4px;
+            display: none;
+        }
+
+        .card.equipped .card-tag {
+            display: block;
+        }
+
+        /* --- GAME UI --- */
+        #game-ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: none;
+        }
+
+        .hud-top {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            pointer-events: auto;
+        }
+
+        .player-tag {
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #444;
+            padding: 10px 20px;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            min-width: 120px;
+        }
+
+        .player-tag.me {
+            border-color: var(--primary);
+        }
+
+        .p-name {
+            font-size: 0.8rem;
+            color: #888;
+            margin-bottom: 2px;
+        }
+
+        .p-cash {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--gold);
+        }
+
+        .wave-badge {
+            background: var(--secondary);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 20px rgba(255, 0, 85, 0.4);
+        }
+
+        .hud-right {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: auto;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .tower-btn {
+            width: 80px;
+            height: 80px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #444;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: 0.2s;
+            position: relative;
+        }
+
+        .tower-btn:hover {
+            border-color: var(--primary);
+            background: #1a1a2e;
+        }
+
+        .tower-btn.selected {
+            border-color: var(--gold);
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+        }
+
+        .tower-btn.broke {
+            opacity: 0.5;
+        }
+
+        .tb-cost {
+            font-size: 0.8rem;
+            color: var(--gold);
+            margin-top: 5px;
+        }
+
+        .tb-icon {
+            font-size: 1.5rem;
+            color: #fff;
+        }
+
+        .tb-hotkey {
+            position: absolute;
+            top: 2px;
+            left: 4px;
+            font-size: 0.7rem;
+            color: #555;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+
+        /* Notification Toast */
+        #toast {
+            position: absolute;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid var(--primary);
+            padding: 10px 20px;
+            border-radius: 30px;
+            color: #fff;
+            font-weight: bold;
+            opacity: 0;
+            transition: 0.3s;
+            z-index: 100;
+        }
+
+        input.lobby-input {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid #444;
+            padding: 10px;
+            color: #fff;
+            text-align: center;
+            font-family: var(--font-body);
+            font-size: 1rem;
+            margin-bottom: 10px;
+            width: 200px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="app">
+        <!-- 1. MAIN MENU -->
+        <div id="menu-screen" class="screen active">
+            <div class="glass-panel">
+                <h1>Cyber Defense</h1>
+                <p style="letter-spacing: 5px; margin-bottom: 20px; opacity: 0.7;">TDS ULTIMATE</p>
+
+                <div class="currency-display"><i class="fas fa-coins"></i> <span id="menu-coins">0</span></div>
+
+                <div style="display:flex; justify-content:center; gap:10px; flex-wrap:wrap;">
+                    <button class="btn" onclick="UI.showLobby()">JOUER (CO-OP)</button>
+                    <button class="btn secondary" onclick="UI.showInventory()">INVENTAIRE</button>
+                    <button class="btn secondary" onclick="UI.showShop()">BOUTIQUE</button>
+                </div>
+
+                <p style="margin-top: 30px; font-size: 0.8rem; color: #555;">ID Utilisateur: <span
+                        id="user-id">---</span></p>
+            </div>
+        </div>
+
+        <!-- 2. INVENTORY / SHOP -->
+        <div id="management-screen" class="screen">
+            <div class="glass-panel" style="width: 800px;">
+                <h1 id="mgmt-title">INVENTAIRE</h1>
+                <div class="currency-display"><i class="fas fa-coins"></i> <span id="mgmt-coins">0</span></div>
+
+                <div class="grid-container" id="mgmt-grid">
+                    <!-- Cards generated by JS -->
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <button class="btn secondary" onclick="UI.showMenu()">RETOUR</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. LOBBY P2P -->
+        <div id="lobby-screen" class="screen">
+            <div class="glass-panel">
+                <h2>OPÉRATIONS CO-OP</h2>
+                <div style="margin: 20px 0;">
+                    <input type="text" id="username" class="lobby-input" placeholder="VOTRE PSEUDO">
+                </div>
+
+                <div id="lobby-actions">
+                    <button class="btn" onclick="Network.hostGame()">CRÉER SALLE</button>
+                    <div style="margin: 10px; opacity:0.5;">- OU -</div>
+                    <input type="text" id="join-code" class="lobby-input" placeholder="CODE SALLE"
+                        style="width: 120px;">
+                    <button class="btn secondary" onclick="Network.joinGame()">REJOINDRE</button>
+                </div>
+
+                <div id="lobby-wait" style="display:none;">
+                    <p>CODE DE SALLE:</p>
+                    <h1 id="lobby-code-disp" style="cursor:pointer;" onclick="Network.copyCode()">---</h1>
+                    <p id="lobby-status" style="color:var(--primary); animation:pulse 1s infinite;">En attente d'un
+                        allié...</p>
+                </div>
+
+                <button class="btn secondary" style="margin-top:20px;" onclick="UI.showMenu()">ANNULER</button>
+            </div>
+        </div>
+
+        <!-- 4. GAME OVER -->
+        <div id="end-screen" class="screen">
+            <div class="glass-panel">
+                <h1 id="end-title">VICTOIRE</h1>
+                <p style="font-size: 1.2rem; margin-bottom: 20px;">Vagues Survécu: <span id="end-wave"
+                        style="color:#fff;">0</span></p>
+
+                <div class="currency-display">+<span id="end-reward">0</span> <i class="fas fa-coins"></i></div>
+
+                <button class="btn" onclick="location.reload()">RETOUR AU LOBBY</button>
+            </div>
+        </div>
+
+        <!-- GAMEPLAY HUD -->
+        <div id="game-ui">
+            <div class="hud-top">
+                <div class="player-tag me" id="p1-tag">
+                    <div class="p-name" id="p1-name">Moi</div>
+                    <div class="p-cash">$<span id="p1-cash">650</span></div>
+                </div>
+
+                <div class="wave-badge">
+                    <i class="fas fa-skull" style="margin-right:10px;"></i> <span id="wave-num">1</span>
+                </div>
+                <div
+                    style="background:#000; color:#fff; padding:5px 15px; border-radius:20px; display:flex; align-items:center; border:1px solid #333;">
+                    <i class="fas fa-heart" style="color:var(--secondary); margin-right:5px;"></i> <span
+                        id="team-lives">100</span>
+                </div>
+
+                <div class="player-tag" id="p2-tag" style="opacity:0.5;">
+                    <div class="p-name" id="p2-name">Allié</div>
+                    <div class="p-cash">$<span id="p2-cash">---</span></div>
+                </div>
+            </div>
+
+            <div class="hud-right" id="ingame-shop">
+                <!-- Towers -->
+            </div>
+
+            <div id="toast">Info</div>
+        </div>
+
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <script>
+        /**
+         * ------------------------------------------------------------------
+         * 1. DATABASE & CONFIG
+         * ------------------------------------------------------------------
+         */
+        const TOWER_DB = {
+            'scout': { name: 'Eclaireur', cost: 0, gamePrice: 150, dmg: 3, range: 120, speed: 0.8, color: '#00f2ff', icon: 'fa-person-rifle', desc: 'Rapide et pas cher.' },
+            'sniper': { name: 'Sniper', cost: 500, gamePrice: 450, dmg: 30, range: 300, speed: 2.5, color: '#ff0055', icon: 'fa-crosshairs', desc: 'Longue portée.' },
+            'soldier': { name: 'Soldat', cost: 1000, gamePrice: 350, dmg: 7, range: 140, speed: 0.4, color: '#00ff88', icon: 'fa-shield-halved', desc: 'Tir soutenu.' },
+            'demo': { name: 'Artilleur', cost: 2500, gamePrice: 600, dmg: 15, range: 160, speed: 1.8, color: '#ffaa00', icon: 'fa-bomb', type: 'aoe', desc: 'Dégâts de zone.' },
+            'minigun': { name: 'Minigunner', cost: 8000, gamePrice: 2000, dmg: 5, range: 180, speed: 0.1, color: '#9b59b6', icon: 'fa-biohazard', desc: 'DPS Massif.' },
+            'farm': { name: 'Ferme', cost: 2000, gamePrice: 250, dmg: 0, range: 0, speed: 0, color: '#f1c40f', icon: 'fa-wheat-awn', type: 'eco', desc: 'Produit de l\'argent.' },
+            'dj': { name: 'DJ Booth', cost: 5000, gamePrice: 1000, dmg: 0, range: 200, speed: 0, color: '#3498db', icon: 'fa-music', type: 'buff', desc: '+20% Portée.' }
+        };
+
+        const ENEMIES = {
+            normal: { hp: 15, speed: 60, reward: 10, color: '#ccc' },
+            fast: { hp: 10, speed: 100, reward: 12, color: '#ffaa00' },
+            tank: { hp: 80, speed: 35, reward: 30, color: '#444', size: 1.4 },
+            boss: { hp: 600, speed: 25, reward: 200, color: '#ff0055', size: 2.2 }
+        };
+
+        /**
+         * ------------------------------------------------------------------
+         * 2. USER DATA MANAGER (Persistence)
+         * ------------------------------------------------------------------
+         */
+        const User = {
+            data: {
+                id: 'user_' + Math.random().toString(36).substr(2, 5),
+                name: 'Guest',
+                coins: 1000, // Starting bonus
+                inventory: ['scout'], // Starter tower
+                loadout: ['scout']
+            },
+
+            init() {
+                const saved = localStorage.getItem('tds_save');
+                if (saved) this.data = JSON.parse(saved);
+                this.save();
+                document.getElementById('user-id').innerText = this.data.id;
+                UI.updateCurrency();
+            },
+
+            save() {
+                localStorage.setItem('tds_save', JSON.stringify(this.data));
+                UI.updateCurrency();
+            },
+
+            buyTower(id) {
+                const price = TOWER_DB[id].cost;
+                if (this.data.coins >= price && !this.data.inventory.includes(id)) {
+                    this.data.coins -= price;
+                    this.data.inventory.push(id);
+                    this.save();
+                    return true;
+                }
+                return false;
+            },
+
+            toggleLoadout(id) {
+                if (!this.data.inventory.includes(id)) return;
+
+                const idx = this.data.loadout.indexOf(id);
+                if (idx > -1) {
+                    this.data.loadout.splice(idx, 1);
+                } else {
+                    if (this.data.loadout.length < 5) this.data.loadout.push(id);
+                    else UI.toast("Loadout plein (Max 5) !");
+                }
+                this.save();
+            }
+        };
+
+        /**
+         * ------------------------------------------------------------------
+         * 3. NETWORK MANAGER (PeerJS)
+         * ------------------------------------------------------------------
+         */
+        const Network = {
+            peer: null,
+            conn: null,
+            isHost: false,
+            opponent: null,
+
+            init() {
+                // Initialisé seulement au besoin
+            },
+
+            hostGame() {
+                const name = document.getElementById('username').value || "Joueur 1";
+                User.data.name = name;
+                User.save();
+
+                const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+                this.peer = new Peer(code);
+                this.isHost = true;
+
+                this.peer.on('open', (id) => {
+                    document.getElementById('lobby-actions').style.display = 'none';
+                    document.getElementById('lobby-wait').style.display = 'block';
+                    document.getElementById('lobby-code-disp').innerText = id;
+                });
+
+                this.peer.on('connection', (c) => {
+                    this.conn = c;
+                    this.setupConn();
+                });
+            },
+
+            joinGame() {
+                const name = document.getElementById('username').value || "Joueur 2";
+                User.data.name = name;
+                User.save();
+
+                const code = document.getElementById('join-code').value.toUpperCase();
+                if (code.length < 2) return;
+
+                this.peer = new Peer();
+                this.peer.on('open', () => {
+                    this.conn = this.peer.connect(code);
+                    this.setupConn();
+                });
+
+                this.peer.on('error', err => UI.toast("Erreur de connexion ID"));
+            },
+
+            setupConn() {
+                this.conn.on('open', () => {
+                    // Handshake: Send Loadout & Name
+                    this.send('HANDSHAKE', {
+                        name: User.data.name,
+                        loadout: User.data.loadout
+                    });
+                });
+
+                this.conn.on('data', (data) => {
+                    switch (data.type) {
+                        case 'HANDSHAKE':
+                            this.opponent = data.payload;
+                            UI.toast(`${data.payload.name} connecté !`);
+                            if (this.isHost) {
+                                setTimeout(() => this.startGame(), 1000);
+                            }
+                            break;
+                        case 'START':
+                            Game.start(false, data.payload); // Client Start
+                            break;
+                        case 'SYNC':
+                            Game.sync(data.payload);
+                            break;
+                        case 'TOWER_PLACE':
+                            Game.remotePlace(data.payload);
+                            break;
+                        case 'GAME_OVER':
+                            Game.end(data.payload.wave, data.payload.win);
+                            break;
+                    }
+                });
+            },
+
+            startGame() {
+                const seed = Date.now();
+                // Host Start
+                Game.start(true, { seed: seed, opponent: this.opponent });
+                this.send('START', { seed: seed, opponent: { name: User.data.name, loadout: User.data.loadout } });
+            },
+
+            send(type, payload) {
+                if (this.conn && this.conn.open) this.conn.send({ type, payload });
+            },
+
+            copyCode() {
+                const t = document.getElementById('lobby-code-disp').innerText;
+                navigator.clipboard.writeText(t);
+                UI.toast("Code Copié !");
+            }
+        };
+
+        /**
+         * ------------------------------------------------------------------
+         * 4. GAME ENGINE
+         * ------------------------------------------------------------------
+         */
+        const Game = {
+            canvas: null, ctx: null,
+            running: false,
+            isHost: false,
+
+            // State
+            wave: 1,
+            lives: 100,
+            p1: { name: '', cash: 650, loadout: [] }, // Me
+            p2: { name: '', cash: 650, loadout: [] }, // Ally
+
+            // Entities
+            grid: [],
+            path: [],
+            enemies: [],
+            towers: [],
+            projectiles: [],
+            particles: [],
+
+            // Input
+            mouse: { x: 0, y: 0 },
+            selectedTower: null,
+            selectedShopItem: null,
+
+            start(isHost, config) {
+                this.isHost = isHost;
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.canvas.width = window.innerWidth;
+                this.canvas.height = window.innerHeight;
+
+                // Setup Players
+                this.p1.name = User.data.name;
+                this.p1.loadout = User.data.loadout;
+                this.p1.cash = 650; // Starting cash
+
+                this.p2.name = config.opponent.name;
+                this.p2.loadout = config.opponent.loadout;
+                this.p2.cash = 650;
+
+                UI.setupGameHUD();
+                this.initMap();
+
+                document.querySelector('.screen.active').classList.remove('active');
+                document.getElementById('game-ui').style.display = 'block';
+
+                this.running = true;
+                this.wave = 1;
+                this.lives = 100;
+                this.inWave = false;
+
+                // Event Listeners
+                this.canvas.addEventListener('mousemove', e => {
+                    this.mouse.x = e.clientX;
+                    this.mouse.y = e.clientY;
+                });
+                this.canvas.addEventListener('mousedown', e => this.onClick(e));
+                document.addEventListener('keydown', e => {
+                    if (e.key === 'Escape') this.deselect();
+                    // Hotkeys 1-5
+                    if (parseInt(e.key) > 0 && parseInt(e.key) <= 5) {
+                        const id = this.p1.loadout[parseInt(e.key) - 1];
+                        if (id) this.selectShop(id);
+                    }
+                });
+
+                requestAnimationFrame(t => this.loop(t));
+            },
+
+            initMap() {
+                const w = this.canvas.width;
+                const h = this.canvas.height;
+                // Simple procedural-ish path based on screen size
+                this.path = [
+                    { x: 0, y: h * 0.2 }, { x: w * 0.3, y: h * 0.2 }, { x: w * 0.3, y: h * 0.7 },
+                    { x: w * 0.7, y: h * 0.7 }, { x: w * 0.7, y: h * 0.3 }, { x: w, y: h * 0.3 }
+                ];
+
+                // Grid Init
+                const cols = Math.floor(w / 40);
+                const rows = Math.floor(h / 40);
+                this.grid = [];
+                for (let r = 0; r < rows; r++) {
+                    this.grid[r] = [];
+                    for (let c = 0; c < cols; c++) this.grid[r][c] = null;
+                }
+            },
+
+            // --- UPDATE LOOP ---
+            loop(t) {
+                if (!this.running) return;
+                const dt = 0.016; // Fixed step approx
+
+                if (this.isHost) this.hostLogic(dt);
+
+                // Update Entities
+                this.enemies.forEach(e => e.update(dt));
+                this.enemies = this.enemies.filter(e => e.active);
+
+                this.towers.forEach(t => t.update(dt));
+                this.projectiles.forEach(p => p.update(dt));
+                this.projectiles = this.projectiles.filter(p => p.active);
+                this.particles.forEach(p => p.update(dt));
+                this.particles = this.particles.filter(p => p.life > 0);
+
+                // Send Sync if Host
+                if (this.isHost) {
+                    // Simplified Sync: Only send critical state
+                    Network.send('SYNC', {
+                        wave: this.wave,
+                        lives: this.lives,
+                        p1cash: this.p1.cash,
+                        p2cash: this.p2.cash,
+                        enemies: this.enemies.map(e => ({ x: e.x, y: e.y, type: e.typeId, hp: e.hp, id: e.id }))
+                    });
+                }
+
+                this.draw();
+                requestAnimationFrame(t => this.loop(t));
+            },
+
+            hostLogic(dt) {
+                if (!this.inWave && this.enemies.length === 0) {
+                    // Start next wave after delay
+                    if (!this.waveTimer) {
+                        this.waveTimer = setTimeout(() => {
+                            this.startWave();
+                            this.waveTimer = null;
+                        }, 3000);
+                    }
+                }
+
+                if (this.lives <= 0) {
+                    this.end(this.wave, false);
+                    Network.send('GAME_OVER', { wave: this.wave, win: false });
+                }
+            },
+
+            startWave() {
+                this.inWave = true;
+                this.wave++;
+                UI.updateHUD();
+
+                // Give Wave Cash
+                const income = 100 + this.wave * 20;
+                this.p1.cash += income;
+                this.p2.cash += income;
+
+                // Host spawns enemies
+                let count = 5 + Math.floor(this.wave * 1.5);
+                let type = 'normal';
+                if (this.wave > 3) type = 'fast';
+                if (this.wave > 7) type = 'tank';
+                if (this.wave % 10 === 0) type = 'boss';
+
+                let spawned = 0;
+                const int = setInterval(() => {
+                    this.enemies.push(new Enemy(type, this.path));
+                    spawned++;
+                    if (spawned >= count) {
+                        clearInterval(int);
+                        this.inWave = false;
+                    }
+                }, 1000);
+            },
+
+            // --- SYNC (Client Side) ---
+            sync(state) {
+                this.wave = state.wave;
+                this.lives = state.lives;
+                this.p2.cash = state.p1cash; // Invert for client perspective
+                this.p1.cash = state.p2cash; // My cash is what host calls p2cash
+
+                // Sync enemies (Simple interpolation could be added)
+                // For now, we clear and rebuild to prevent desync in this simple version
+                // In pro version, we would update existing IDs
+                this.enemies = state.enemies.map(e => {
+                    const en = new Enemy(e.type, this.path);
+                    en.x = e.x; en.y = e.y; en.hp = e.hp; en.id = e.id;
+                    return en;
+                });
+
+                UI.updateHUD();
+            },
+
+            // --- ACTIONS ---
+            selectShop(id) {
+                this.selectedShopItem = id;
+                this.selectedTower = null;
+                // Highlight UI
+                document.querySelectorAll('.tower-btn').forEach(b => b.classList.remove('selected'));
+                const btn = document.getElementById('btn-' + id);
+                if (btn) btn.classList.add('selected');
+            },
+
+            deselect() {
+                this.selectedShopItem = null;
+                this.selectedTower = null;
+                document.querySelectorAll('.tower-btn').forEach(b => b.classList.remove('selected'));
+            },
+
+            onClick(e) {
+                const c = Math.floor(this.mouse.x / 40);
+                const r = Math.floor(this.mouse.y / 40);
+
+                if (this.selectedShopItem) {
+                    // Place Tower
+                    const def = TOWER_DB[this.selectedShopItem];
+                    if (this.p1.cash >= def.gamePrice && !this.grid[r][c]) {
+                        this.p1.cash -= def.gamePrice;
+                        this.placeTower(this.selectedShopItem, c, r, true);
+
+                        // Send to peer
+                        Network.send('TOWER_PLACE', { id: this.selectedShopItem, c, r });
+
+                        if (!e.shiftKey) this.deselect();
+                    } else {
+                        UI.toast("Pas assez d'argent ou emplacement invalide !");
+                    }
+                }
+            },
+
+            placeTower(id, c, r, isMine) {
+                const t = new Tower(id, c, r, isMine);
+                this.towers.push(t);
+                this.grid[r][c] = t;
+            },
+
+            remotePlace(data) {
+                this.p2.cash -= TOWER_DB[data.id].gamePrice; // Visually deduct ally cash
+                this.placeTower(data.id, data.c, data.r, false);
+            },
+
+            giveCash(amount) {
+                // Called when enemy dies
+                this.p1.cash += amount;
+                // For shared logic, we could update host, but individual economy means I keep what I kill
+            },
+
+            // --- DRAW ---
+            draw() {
+                this.ctx.fillStyle = '#050508';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+                // Path
+                this.ctx.lineWidth = 40;
+                this.ctx.lineCap = 'round';
+                this.ctx.strokeStyle = '#1a1a2e';
+                this.ctx.beginPath();
+                this.path.forEach((p, i) => i === 0 ? this.ctx.moveTo(p.x, p.y) : this.ctx.lineTo(p.x, p.y));
+                this.ctx.stroke();
+
+                // Grid hint (on hover)
+                const hc = Math.floor(this.mouse.x / 40);
+                const hr = Math.floor(this.mouse.y / 40);
+                this.ctx.fillStyle = 'rgba(255,255,255,0.05)';
+                this.ctx.fillRect(hc * 40, hr * 40, 40, 40);
+
+                // Towers
+                this.towers.forEach(t => t.draw(this.ctx));
+
+                // Enemies
+                this.enemies.forEach(e => e.draw(this.ctx));
+
+                // Projectiles
+                this.projectiles.forEach(p => p.draw(this.ctx));
+
+                // Particles
+                this.particles.forEach(p => p.draw(this.ctx));
+
+                // Placement Preview
+                if (this.selectedShopItem) {
+                    const range = TOWER_DB[this.selectedShopItem].range;
+                    this.ctx.beginPath(); this.ctx.arc(hc * 40 + 20, hr * 40 + 20, range, 0, Math.PI * 2);
+                    this.ctx.fillStyle = 'rgba(255,255,255,0.2)'; this.ctx.fill();
+                }
+            },
+
+            end(wave, win) {
+                this.running = false;
+                document.getElementById('game-ui').style.display = 'none';
+                document.getElementById('end-screen').style.display = 'flex';
+
+                const reward = wave * 15 + (win ? 500 : 0);
+                User.data.coins += reward;
+                User.save();
+
+                document.getElementById('end-reward').innerText = reward;
+                document.getElementById('end-wave').innerText = wave;
+                document.getElementById('end-title').innerText = win ? "VICTOIRE" : "DÉFAITE";
+                document.getElementById('end-title').style.color = win ? "#00ff88" : "#ff0055";
+            }
+        };
+
+        /**
+         * ------------------------------------------------------------------
+         * 5. GAME ENTITIES
+         * ------------------------------------------------------------------
+         */
+        class Enemy {
+            constructor(typeId, path) {
+                this.typeId = typeId;
+                const conf = ENEMIES[typeId];
+                this.hp = conf.hp * (1 + Game.wave * 0.2);
+                this.maxHp = this.hp;
+                this.speed = conf.speed;
+                this.color = conf.color;
+                this.reward = conf.reward;
+                this.size = conf.size || 1;
+
+                this.path = path;
+                this.x = path[0].x;
+                this.y = path[0].y;
+                this.idx = 0;
+                this.active = true;
+                this.id = Math.random();
+            }
+
+            update(dt) {
+                if (!this.active) return;
+                const target = this.path[this.idx + 1];
+                if (!target) {
+                    this.active = false;
+                    Game.lives--;
+                    UI.updateHUD();
+                    return;
+                }
+
+                const dx = target.x - this.x;
+                const dy = target.y - this.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const move = this.speed * dt;
+
+                if (dist < move) {
+                    this.x = target.x; this.y = target.y; this.idx++;
+                } else {
+                    this.x += (dx / dist) * move;
+                    this.y += (dy / dist) * move;
+                }
+            }
+
+            draw(ctx) {
+                const s = 10 * this.size;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                if (this.typeId === 'boss') {
+                    ctx.moveTo(this.x, this.y - s * 1.5); ctx.lineTo(this.x + s, this.y);
+                    ctx.lineTo(this.x, this.y + s * 1.5); ctx.lineTo(this.x - s, this.y);
+                } else {
+                    ctx.arc(this.x, this.y, s, 0, Math.PI * 2);
+                }
+                ctx.fill();
+
+                // Life bar
+                const pct = this.hp / this.maxHp;
+                ctx.fillStyle = 'red'; ctx.fillRect(this.x - 10, this.y - s - 5, 20, 3);
+                ctx.fillStyle = '#0f0'; ctx.fillRect(this.x - 10, this.y - s - 5, 20 * pct, 3);
+            }
+        }
+
+        class Tower {
+            constructor(id, c, r, isMine) {
+                const def = TOWER_DB[id];
+                this.def = def;
+                this.c = c; this.r = r;
+                this.x = c * 40 + 20; this.y = r * 40 + 20;
+                this.isMine = isMine;
+
+                this.range = def.range;
+                this.dmg = def.dmg;
+                this.cooldown = 0;
+                this.angle = 0;
+                this.level = 1;
+
+                // Eco tower logic
+                this.incomeTimer = 0;
+            }
+
+            update(dt) {
+                this.cooldown -= dt;
+
+                // Farm Logic
+                if (this.def.type === 'eco' && this.isMine) {
+                    // In TDS farms give money at wave end, but simpler here: periodic
+                    // Let's stick to wave end logic in Game Loop actually, or simple timer
+                    return;
+                }
+
+                if (this.def.type === 'buff') return;
+
+                // Target
+                const target = Game.enemies.find(e => {
+                    const d = Math.sqrt((e.x - this.x) ** 2 + (e.y - this.y) ** 2);
+                    return d <= this.range;
+                });
+
+                if (target) {
+                    this.angle = Math.atan2(target.y - this.y, target.x - this.x);
+                    if (this.cooldown <= 0) {
+                        this.shoot(target);
+                        this.cooldown = this.def.speed;
+                    }
+                }
+            }
+
+            shoot(t) {
+                // Visuals
+                Game.projectiles.push(new Projectile(this.x, this.y, t.x, t.y, this.def.color));
+
+                // Logic (Host Authoritative would be better, but Shared Authority for responsiveness)
+                // If it's my tower, I calculate damage and claim reward locally (P2P trust)
+                if (this.isMine || !Game.isHost) { // Simplified: Everyone calculates damage visuals
+                    // Actual damage only if Host OR if we want shared logic
+                    // To keep sync simple: Host calculates ALL damage. 
+                    // Client only visual.
+                    if (Game.isHost) {
+                        t.hp -= this.dmg;
+                        if (t.hp <= 0 && t.active) {
+                            t.active = false;
+                            // Give money to owner
+                            if (this.isMine) Game.p1.cash += t.reward;
+                            else Game.p2.cash += t.reward;
+                        }
+                    } else if (this.isMine) {
+                        // Client predicts money gain for responsiveness
+                        // In a real networked game, we'd wait for server confirmation
+                        // Here we cheat a bit for smoothness:
+                        if (t.hp - this.dmg <= 0) Game.p1.cash += t.reward;
+                    }
+                }
+            }
+
+            draw(ctx) {
+                // Base
+                ctx.fillStyle = '#111';
+                ctx.beginPath(); ctx.arc(this.x, this.y, 15, 0, Math.PI * 2); ctx.fill();
+                // Ring for owner
+                ctx.strokeStyle = this.isMine ? '#00f2ff' : '#aaa';
+                ctx.lineWidth = 2; ctx.stroke();
+
+                // Turret
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                if (this.def.type !== 'farm' && this.def.type !== 'buff') ctx.rotate(this.angle);
+
+                ctx.fillStyle = this.def.color;
+                if (this.def.type === 'farm') {
+                    ctx.fillRect(-10, -10, 20, 20); // Box
+                    ctx.fillStyle = '#2ecc71'; ctx.beginPath(); ctx.arc(0, -5, 8, 0, Math.PI * 2); ctx.fill();
+                } else {
+                    ctx.fillRect(-8, -8, 16, 16);
+                    ctx.fillRect(0, -2, 18, 4); // Barrel
+                }
+                ctx.restore();
+            }
+        }
+
+        class Projectile {
+            constructor(x1, y1, x2, y2, color) {
+                this.x1 = x1; this.y1 = y1; this.x2 = x2; this.y2 = y2;
+                this.color = color; this.active = true; this.life = 0.1;
+            }
+            update(dt) { this.life -= dt; if (this.life <= 0) this.active = false; }
+            draw(ctx) {
+                ctx.strokeStyle = this.color; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(this.x1, this.y1); ctx.lineTo(this.x2, this.y2); ctx.stroke();
+            }
+        }
+
+        class Particle {
+            constructor(x, y, c) {
+                this.x = x; this.y = y; this.c = c; this.life = 1.0;
+                this.vx = (Math.random() - 0.5) * 50; this.vy = (Math.random() - 0.5) * 50;
+            }
+            update(dt) { this.x += this.vx * dt; this.y += this.vy * dt; this.life -= dt * 2; }
+            draw(ctx) {
+                ctx.globalAlpha = Math.max(0, this.life); ctx.fillStyle = this.c;
+                ctx.fillRect(this.x, this.y, 3, 3); ctx.globalAlpha = 1;
+            }
+        }
+
+        /**
+         * ------------------------------------------------------------------
+         * 6. UI MANAGER
+         * ------------------------------------------------------------------
+         */
+        const UI = {
+            showMenu() {
+                document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+                document.getElementById('menu-screen').classList.add('active');
+                this.updateCurrency();
+            },
+
+            showInventory() {
+                this.renderGrid('inventory');
+                document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+                document.getElementById('management-screen').classList.add('active');
+                document.getElementById('mgmt-title').innerText = "INVENTAIRE (LOADOUT)";
+            },
+
+            showShop() {
+                this.renderGrid('shop');
+                document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+                document.getElementById('management-screen').classList.add('active');
+                document.getElementById('mgmt-title').innerText = "BOUTIQUE";
+            },
+
+            showLobby() {
+                document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+                document.getElementById('lobby-screen').classList.add('active');
+            },
+
+            renderGrid(mode) {
+                const grid = document.getElementById('mgmt-grid');
+                grid.innerHTML = '';
+                document.getElementById('mgmt-coins').innerText = User.data.coins;
+
+                for (const [id, t] of Object.entries(TOWER_DB)) {
+                    const owned = User.data.inventory.includes(id);
+                    const equipped = User.data.loadout.includes(id);
+
+                    // Filter logic
+                    if (mode === 'inventory' && !owned) continue;
+
+                    const card = document.createElement('div');
+                    card.className = `card ${owned ? 'owned' : ''} ${equipped ? 'equipped' : ''}`;
+                    if (mode === 'shop' && owned) card.classList.add('locked');
+
+                    card.innerHTML = `
+                <div class="card-tag">EQUIPÉ</div>
+                <i class="fa-solid ${t.icon}"></i>
+                <div class="card-name">${t.name}</div>
+                <div class="card-price">${owned ? 'Possédé' : t.cost + ' <i class="fas fa-coins"></i>'}</div>
+            `;
+
+                    card.onclick = () => {
+                        if (mode === 'shop') {
+                            if (!owned) {
+                                if (User.buyTower(id)) {
+                                    this.toast("Acheté !");
+                                    this.renderGrid('shop');
+                                } else this.toast("Pas assez de pièces !");
+                            }
+                        } else {
+                            User.toggleLoadout(id);
+                            this.renderGrid('inventory');
+                        }
+                    };
+
+                    grid.appendChild(card);
+                }
+            },
+
+            setupGameHUD() {
+                const container = document.getElementById('ingame-shop');
+                container.innerHTML = '';
+
+                Game.p1.loadout.forEach((id, idx) => {
+                    const t = TOWER_DB[id];
+                    const btn = document.createElement('div');
+                    btn.className = 'tower-btn';
+                    btn.id = 'btn-' + id;
+                    btn.innerHTML = `
+                <span class="tb-hotkey">${idx + 1}</span>
+                <i class="fa-solid ${t.icon} tb-icon" style="color:${t.color}"></i>
+                <span class="tb-cost">$${t.gamePrice}</span>
+            `;
+                    btn.onclick = () => Game.selectShop(id);
+                    container.appendChild(btn);
+                });
+
+                document.getElementById('p1-name').innerText = Game.p1.name;
+                document.getElementById('p2-name').innerText = Game.p2.name;
+                this.updateHUD();
+            },
+
+            updateHUD() {
+                document.getElementById('p1-cash').innerText = Game.p1.cash;
+                document.getElementById('p2-cash').innerText = Game.p2.cash;
+                document.getElementById('wave-num').innerText = Game.wave;
+                document.getElementById('team-lives').innerText = Game.lives;
+
+                // Grey out unaffordable towers
+                if (Game.p1.loadout) {
+                    Game.p1.loadout.forEach(id => {
+                        const btn = document.getElementById('btn-' + id);
+                        if (btn) {
+                            const price = TOWER_DB[id].gamePrice;
+                            if (Game.p1.cash < price) btn.classList.add('broke');
+                            else btn.classList.remove('broke');
+                        }
+                    });
+                }
+            },
+
+            updateCurrency() {
+                document.getElementById('menu-coins').innerText = User.data.coins;
+            },
+
+            toast(msg) {
+                const t = document.getElementById('toast');
+                t.innerText = msg;
+                t.style.opacity = 1;
+                setTimeout(() => t.style.opacity = 0, 2000);
+            }
+        };
+
+        // --- INITIALISATION ---
+        window.onload = () => {
+            User.init();
+            Network.init();
+        };
+
+    </script>
+</body>
+
+</html>
